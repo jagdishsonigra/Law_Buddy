@@ -7,33 +7,39 @@ using UnityEngine.UI;
 
 public class AudioInputClient : MonoBehaviour
 {
-    public TMP_InputField inputField; // Reference to the TMP Input Field in the Unity Inspector
-    public Button sendButton; // Reference to the Button in the Unity Inspector
-    public TMP_Text responseText; // Reference to the TMP Text component to display server responses
+    public ScrollRect scrollRect;
+    public RectTransform content;
+    public TextMeshProUGUI messagePrefab;
+    public TMP_InputField inputField;
+    public Button sendButton;
 
     private TcpClient client;
     private NetworkStream stream;
     private byte[] receiveBuffer = new byte[1024];
 
+    private UnityMainThreadDispatcher dispatcher;
+
     void Start()
     {
+        dispatcher = FindObjectOfType<UnityMainThreadDispatcher>();
+        if (dispatcher == null)
+        {
+            Debug.LogError("UnityMainThreadDispatcher not found in the scene.");
+            return;
+        }
+
         ConnectToServer();
-        sendButton.onClick.AddListener(SendMessage); // Attach SendMessage method to the Button's onClick event
+        sendButton.onClick.AddListener(SendMessage);
     }
 
     void ConnectToServer()
     {
         try
         {
-            // Connect to the Python server
-            client = new TcpClient("192.168.253.67", 12345);
+            client = new TcpClient("192.168.253.67", 12345); // Change IP address and port to your server
             stream = client.GetStream();
 
-            // Receive the welcome message from the server
-            int bytesRead = stream.Read(receiveBuffer, 0, receiveBuffer.Length);
-            string welcomeMessage = Encoding.UTF8.GetString(receiveBuffer, 0, bytesRead);
-            Debug.Log("Server says: " + welcomeMessage);
-            UpdateResponseText("Server says: " + welcomeMessage); // Display welcome message
+            BeginReceive();
         }
         catch (Exception e)
         {
@@ -45,26 +51,13 @@ public class AudioInputClient : MonoBehaviour
     {
         try
         {
-            // Clear the response text
-            responseText.text = "";
-
-            // Send a message to the server
-            string messageToSend = inputField.text; // Read text from TMP Input Field
+            string messageToSend = inputField.text;
             byte[] data = Encoding.UTF8.GetBytes(messageToSend);
             stream.Write(data, 0, data.Length);
 
-            // If the user types 'bye', close the connection
-            if (messageToSend.ToLower() == "bye")
-            {
-                stream.Close();
-                client.Close();
-            }
-            
-            // Receive a message from the server
-            int bytesRead = stream.Read(receiveBuffer, 0, receiveBuffer.Length);
-            string receivedMessage = Encoding.UTF8.GetString(receiveBuffer, 0, bytesRead);
-            Debug.Log("Server says: " + receivedMessage);
-            UpdateResponseText("Server says: " + receivedMessage); // Display received message
+            AddMessage("You", messageToSend);
+
+            inputField.text = ""; // Clear input field after sending message
         }
         catch (Exception e)
         {
@@ -72,8 +65,77 @@ public class AudioInputClient : MonoBehaviour
         }
     }
 
-    void UpdateResponseText(string message)
+    void BeginReceive()
     {
-        responseText.text = message;
+        try
+        {
+            AsyncCallback callback = new AsyncCallback(ReceiveCallback);
+            stream.BeginRead(receiveBuffer, 0, receiveBuffer.Length, callback, null);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error: " + e.Message);
+        }
+    }
+
+    void ReceiveCallback(IAsyncResult ar)
+    {
+        try
+        {
+            int bytesRead = stream.EndRead(ar);
+            if (bytesRead > 0)
+            {
+                string receivedMessage = Encoding.UTF8.GetString(receiveBuffer, 0, bytesRead);
+                string[] messageChunks = receivedMessage.Split('\n');
+
+                foreach (string chunk in messageChunks)
+                {
+                    string message = chunk;
+                    dispatcher.Enqueue(() => AddMessage("Server", message));
+                }
+
+                BeginReceive();
+            }
+            else
+            {
+                Debug.Log("Connection closed.");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error: " + e.Message);
+        }
+    }
+
+    void AddMessage(string sender, string message)
+    {
+        TextMeshProUGUI messageText = Instantiate(messagePrefab, content);
+
+        bool isFirstMessageFromServer = (sender == "Server" && content.childCount == 0);
+
+        if (isFirstMessageFromServer)
+        {
+            messageText.text = "<color=blue><b>Server:</b></color> " + message;
+        }
+        else
+        {
+            messageText.text = message;
+        }
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+        Canvas.ForceUpdateCanvases();
+        scrollRect.verticalNormalizedPosition = 0; // Scroll to bottom
+
+        LayoutElement layoutElement = messageText.GetComponent<LayoutElement>();
+        layoutElement.flexibleWidth = 9999; // Stretch width
+        float contentWidth = content.rect.width;
+        float preferredHeight = LayoutUtility.GetPreferredHeight(messageText.rectTransform);
+        messageText.rectTransform.sizeDelta = new Vector2(contentWidth, preferredHeight);
+    }
+
+    void OnDestroy()
+    {
+        stream.Close();
+        client.Close();
     }
 }
