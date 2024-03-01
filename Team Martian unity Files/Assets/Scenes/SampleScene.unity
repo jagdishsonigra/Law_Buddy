@@ -703,6 +703,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 480d558bec5f641948c8d7b3200c098b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  inputField: {fileID: 1762322610}
+  sendButton: {fileID: 1935316252}
+  responseText: {fileID: 258645860}
 --- !u!1 &963194225
 GameObject:
   m_ObjectHideFlags: 0
