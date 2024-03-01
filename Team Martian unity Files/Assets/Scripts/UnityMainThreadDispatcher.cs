@@ -6,7 +6,6 @@ using System;
 public class UnityMainThreadDispatcher : MonoBehaviour
 {
     private static readonly Queue<Action> _executionQueue = new Queue<Action>();
-
     private static UnityMainThreadDispatcher _instance = null;
 
     public static bool Exists { get { return _instance != null; } }
@@ -19,7 +18,6 @@ public class UnityMainThreadDispatcher : MonoBehaviour
             {
                 throw new Exception("UnityMainThreadDispatcher doesn't exist in the scene.");
             }
-
             return _instance;
         }
     }

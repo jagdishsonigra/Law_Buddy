@@ -1,17 +1,18 @@
-using System;
-using System.Net.Sockets;
-using System.Text;
 using UnityEngine;
-using TMPro;
 using UnityEngine.UI;
+using TMPro;
+using System.Net.Sockets;
+using System;
+using System.Text;
+using System.Collections.Generic;
 
 public class AudioInputClient : MonoBehaviour
 {
+    public TMP_InputField messageInputField;
+    public Button sendButton;
     public ScrollRect scrollRect;
     public RectTransform content;
     public TextMeshProUGUI messagePrefab;
-    public TMP_InputField inputField;
-    public Button sendButton;
 
     private TcpClient client;
     private NetworkStream stream;
@@ -36,9 +37,10 @@ public class AudioInputClient : MonoBehaviour
     {
         try
         {
-            client = new TcpClient("192.168.253.67", 12345); // Change IP address and port to your server
+            client = new TcpClient("172.20.10.4", 1194); // Change IP address and port to your server
             stream = client.GetStream();
 
+            // Start receiving messages from the server in a separate thread
             BeginReceive();
         }
         catch (Exception e)
@@ -51,13 +53,13 @@ public class AudioInputClient : MonoBehaviour
     {
         try
         {
-            string messageToSend = inputField.text;
+            string messageToSend = messageInputField.text;
             byte[] data = Encoding.UTF8.GetBytes(messageToSend);
             stream.Write(data, 0, data.Length);
 
             AddMessage("You", messageToSend);
 
-            inputField.text = ""; // Clear input field after sending message
+            messageInputField.text = ""; // Clear input field after sending message
         }
         catch (Exception e)
         {
@@ -86,18 +88,20 @@ public class AudioInputClient : MonoBehaviour
             if (bytesRead > 0)
             {
                 string receivedMessage = Encoding.UTF8.GetString(receiveBuffer, 0, bytesRead);
-                string[] messageChunks = receivedMessage.Split('\n');
+                string[] messageChunks = receivedMessage.Split('\n'); // Split message into chunks
 
                 foreach (string chunk in messageChunks)
                 {
-                    string message = chunk;
+                    string message = chunk; // Make sure to capture the value for the lambda expression below
                     dispatcher.Enqueue(() => AddMessage("Server", message));
                 }
 
+                // Continue listening for new messages
                 BeginReceive();
             }
             else
             {
+                // Connection closed
                 Debug.Log("Connection closed.");
             }
         }
@@ -109,28 +113,28 @@ public class AudioInputClient : MonoBehaviour
 
     void AddMessage(string sender, string message)
     {
+        // Create a new TextMeshProUGUI object for the message
         TextMeshProUGUI messageText = Instantiate(messagePrefab, content);
 
+        // Check if this is the first message from the server
         bool isFirstMessageFromServer = (sender == "Server" && content.childCount == 0);
 
+        // If it's the first message from the server, format it accordingly
         if (isFirstMessageFromServer)
         {
+            // Format the message with a different color and prefix
             messageText.text = "<color=blue><b>Server:</b></color> " + message;
         }
         else
         {
+            // Format other messages without the prefix
             messageText.text = message;
         }
 
+        // Ensure proper vertical layout
         LayoutRebuilder.ForceRebuildLayoutImmediate(content);
         Canvas.ForceUpdateCanvases();
         scrollRect.verticalNormalizedPosition = 0; // Scroll to bottom
-
-        LayoutElement layoutElement = messageText.GetComponent<LayoutElement>();
-        layoutElement.flexibleWidth = 9999; // Stretch width
-        float contentWidth = content.rect.width;
-        float preferredHeight = LayoutUtility.GetPreferredHeight(messageText.rectTransform);
-        messageText.rectTransform.sizeDelta = new Vector2(contentWidth, preferredHeight);
     }
 
     void OnDestroy()
