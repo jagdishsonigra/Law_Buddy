@@ -56,7 +56,7 @@ public class VoiceChatClient : MonoBehaviour
     {
         try
         {
-            client = new TcpClient("172.20.10.4", 1194); // Change IP address and port to your server
+            client = new TcpClient("192.168.253.67", 1194); // Change IP address and port to your server
             stream = client.GetStream();
 
             // Start receiving messages from the server in a separate thread

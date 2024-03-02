@@ -31,13 +31,14 @@ public class AudioInputClient : MonoBehaviour
 
         ConnectToServer();
         sendButton.onClick.AddListener(SendMessage);
+
     }
 
     void ConnectToServer()
     {
         try
         {
-            client = new TcpClient("172.20.10.4", 1194); // Change IP address and port to your server
+            client = new TcpClient("192.168.253.67", 1194); // Change IP address and port to your server
             stream = client.GetStream();
 
             // Start receiving messages from the server in a separate thread
@@ -112,30 +113,38 @@ public class AudioInputClient : MonoBehaviour
     }
 
     void AddMessage(string sender, string message)
+{
+    // Create a new TextMeshProUGUI object for the message
+    TextMeshProUGUI messageText = Instantiate(messagePrefab, content);
+
+    // Check if this is the first message from the server
+    bool isFirstMessageFromServer = (sender == "Server" && content.childCount == 0);
+
+    // If it's the first message from the server, format it accordingly
+    if (isFirstMessageFromServer)
     {
-        // Create a new TextMeshProUGUI object for the message
-        TextMeshProUGUI messageText = Instantiate(messagePrefab, content);
-
-        // Check if this is the first message from the server
-        bool isFirstMessageFromServer = (sender == "Server" && content.childCount == 0);
-
-        // If it's the first message from the server, format it accordingly
-        if (isFirstMessageFromServer)
-        {
-            // Format the message with a different color and prefix
-            messageText.text = "<color=blue><b>Server:</b></color> " + message;
-        }
-        else
-        {
-            // Format other messages without the prefix
-            messageText.text = message;
-        }
-
-        // Ensure proper vertical layout
-        LayoutRebuilder.ForceRebuildLayoutImmediate(content);
-        Canvas.ForceUpdateCanvases();
-        scrollRect.verticalNormalizedPosition = 0; // Scroll to bottom
+        // Format the message with a different color and prefix
+        messageText.text = "<color=blue><b>Server:</b></color> " + message;
     }
+    else
+    {
+        // Format other messages without the prefix
+        messageText.text = message;
+    }
+
+    // Ensure proper vertical layout
+    LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+    Canvas.ForceUpdateCanvases();
+    scrollRect.verticalNormalizedPosition = 0; // Scroll to bottom
+
+    // Speak the received message
+    if (sender == "Server")
+    {
+        VoiceRecognitionAndTextToSpeech vc = GetComponent<VoiceRecognitionAndTextToSpeech>();
+        vc.SpeakMessage(message);
+    }
+}
+
 
     void OnDestroy()
     {

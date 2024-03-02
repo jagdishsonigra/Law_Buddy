@@ -58,6 +58,11 @@ public class VoiceRecognitionAndTextToSpeech : MonoBehaviour
         // Update input field with the recognized speech
         inputField.text = text;
     }
+    public void SpeakMessage(string message)
+{
+    // Speak the message using text-to-speech
+    TextToSpeech.Instance.StartSpeak(message);
+}
 
     void OnDisable()
     {
