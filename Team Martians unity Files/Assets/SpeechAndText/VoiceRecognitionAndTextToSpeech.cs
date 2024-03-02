@@ -50,7 +50,6 @@ public class VoiceRecognitionAndTextToSpeech : MonoBehaviour
     void SpeakText()
     {
         // Speak the text from inputField when the speak button is pressed
-        TextToSpeech.Instance.StartSpeak(inputField.text);
     }
 
     void OnSpeechRecognized(string text)
